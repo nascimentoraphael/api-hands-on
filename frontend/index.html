@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verificador de Elegibilidade Rota Hands On Ciclo 9 - Produtividade</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #f4f4f0;
+    --surface:  #ffffff;
+    --border:   #d8d8d2;
+    --text:     #1a1a18;
+    --muted:    #6b6b66;
+    --accent:   #0f4c8c;
+    --ok:       #1a6b3a;   --ok-bg:   #eaf5ee; --ok-bdr:   #9fd4b2;
+    --warn:     #7a4a00;   --warn-bg: #fff8e6; --warn-bdr: #f5c842;
+    --err:      #8b1a1a;   --err-bg:  #fdf0f0; --err-bdr:  #e8a0a0;
+    --radius:   10px;
+    --mono:     "Courier New", monospace;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; padding: 2rem 1rem;
+  }
+
+  .container { max-width: 680px; margin: 0 auto; }
+
+  h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; color: var(--accent); }
+  .subtitle { font-size: 13px; color: var(--muted); margin-bottom: 1.5rem; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 12px;
+  }
+
+  .row-input { display: flex; gap: 8px; align-items: center; }
+
+  input[type="text"] {
+    flex: 1; padding: 9px 12px; border: 1px solid var(--border);
+    border-radius: 7px; font-family: var(--mono); font-size: 15px;
+    outline: none; background: #fafaf8;
+  }
+  input[type="text"]:focus { border-color: var(--accent); }
+
+  button {
+    padding: 9px 18px; background: var(--accent); color: #fff;
+    border: none; border-radius: 7px; font-size: 14px; font-weight: 500;
+    cursor: pointer; white-space: nowrap;
+  }
+  button:hover { background: #0a3d72; }
+  button:disabled { background: #9ab0cc; cursor: not-allowed; }
+
+  .btn-sm {
+    background: transparent; color: var(--text);
+    border: 1px solid var(--border); font-size: 13px; padding: 6px 12px;
+  }
+  .btn-sm:hover { background: var(--bg); }
+
+  .section-label { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+  .hist-meta { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .hist-buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+
+  .alert {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 10px 14px; border-radius: 8px; font-size: 13px;
+    margin-bottom: 12px; border: 1px solid;
+  }
+  .alert.error   { background: var(--err-bg);  border-color: var(--err-bdr);  color: var(--err); }
+  .alert.warning { background: var(--warn-bg); border-color: var(--warn-bdr); color: var(--warn); }
+  .alert.success { background: var(--ok-bg);   border-color: var(--ok-bdr);   color: var(--ok); }
+
+  .veredicto {
+    padding: 14px 16px; border-radius: var(--radius); border: 1px solid;
+    display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px;
+  }
+  .veredicto-icon  { font-size: 22px; flex-shrink: 0; }
+  .veredicto-label { font-size: 13px; font-weight: 600; }
+  .veredicto-msg   { font-size: 13px; margin-top: 2px; }
+  .veredicto.eligible   { background: var(--ok-bg);   border-color: var(--ok-bdr);   color: var(--ok); }
+  .veredicto.restricted { background: var(--warn-bg); border-color: var(--warn-bdr); color: var(--warn); }
+  .veredicto.ineligible { background: var(--err-bg);  border-color: var(--err-bdr);  color: var(--err); }
+
+  .info-row {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 6px 0; border-bottom: 1px solid #f0f0ec; gap: 12px;
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-label { font-size: 13px; color: var(--muted); flex-shrink: 0; }
+  .info-value { font-size: 13px; font-weight: 500; text-align: right; }
+  .info-value.muted { font-weight: 400; color: var(--muted); }
+
+  .criterio {
+    display: flex; gap: 10px; padding: 9px 0;
+    border-bottom: 1px solid #f0f0ec; align-items: flex-start;
+  }
+  .criterio:last-child { border-bottom: none; }
+  .criterio-icon   { font-size: 17px; flex-shrink: 0; margin-top: 1px; }
+  .criterio-title  { font-size: 13px; font-weight: 500; }
+  .criterio-detail { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .criterio.ok   .criterio-icon { color: var(--ok); }
+  .criterio.warn .criterio-icon { color: var(--warn); }
+  .criterio.fail .criterio-icon { color: var(--err); }
+
+  .cnae-list { list-style: none; text-align: right; }
+  .cnae-list li { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .cnae-list li:first-child { margin-top: 0; }
+  .cnae-list .cnae-code { font-family: var(--mono); font-size: 11px; background: #f0f0ec; border-radius: 3px; padding: 0 4px; margin-right: 4px; }
+
+  .spin { display: inline-block; animation: spin 0.9s linear infinite; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .progress-bg  { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin-top: 10px; }
+  .progress-bar { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.35s; width: 0; }
+  .progress-txt { font-size: 12px; color: var(--muted); margin-top: 5px; }
+
+  .lote-summary { display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+
+  #histFile, #batchFile { display: none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Verificador de Elegibilidade Rota Hands On Ciclo 9 - Produtividade</h1>
+
+  <div class="card">
+    <div class="row-input">
+      <input type="text" id="cnpjInput" placeholder="00.000.000/0001-00" maxlength="18" autocomplete="off"/>
+      <button id="btnVerificar" onclick="verificar()">🔍 Verificar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-label">Histórico de chamadas anteriores</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:8px">
+      Carregue um <strong>.xlsx</strong> com CNPJs de edições anteriores. O sistema extrai os CNPJs de qualquer coluna.
+    </p>
+    <div class="hist-buttons">
+      <button class="btn-sm" onclick="document.getElementById('histFile').click()">📂 Carregar planilha</button>
+      <button class="btn-sm" id="btnRemoveHist" style="display:none" onclick="removerHistorico()">🗑 Remover</button>
+    </div>
+    <input type="file" id="histFile" accept=".xlsx,.xls,.csv" onchange="carregarHistorico(event)"/>
+    <p class="hist-meta" id="histMeta"></p>
+  </div>
+
+  <div class="card">
+    <div class="section-label">Verificação em lote</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:8px">
+      Carregue uma planilha <strong>.xlsx / .csv</strong> com CNPJs para verificar todos de uma vez e baixar o resultado.
+    </p>
+    <div class="hist-buttons">
+      <button class="btn-sm" onclick="document.getElementById('batchFile').click()">📂 Selecionar planilha</button>
+      <button class="btn-sm" id="btnIniciar"    style="display:none" onclick="processarLote()">▶ Iniciar verificação</button>
+      <button class="btn-sm" id="btnCancelar"   style="display:none" onclick="cancelarLote()">⏹ Cancelar</button>
+      <button class="btn-sm" id="btnBaixarLote" style="display:none" onclick="downloadResultados()">⬇ Baixar Excel</button>
+    </div>
+    <input type="file" id="batchFile" accept=".xlsx,.xls,.csv" onchange="carregarLote(event)"/>
+    <p class="hist-meta" id="batchMeta"></p>
+    <div id="batchProgressArea" style="display:none">
+      <div class="progress-bg"><div id="progressBar" class="progress-bar"></div></div>
+      <p class="progress-txt" id="progressTxt"></p>
+    </div>
+    <div id="loteSummary"></div>
+  </div>
+
+  <div id="alertArea"></div>
+  <div id="resultArea"></div>
+</div>
+
+<script>
+// Quando servido pelo backend, API_BASE é a mesma origem — sem CORS
+const API_BASE = window.location.origin;
+
+let historico = new Set();
+
+// ─── Máscara ──────────────────────────────────────────────────────────────────
+document.getElementById("cnpjInput").addEventListener("input", function () {
+  let v = this.value.replace(/\D/g, "").substring(0, 14);
+  if      (v.length > 12) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+  else if (v.length > 8)  v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4}).*/,       "$1.$2.$3/$4");
+  else if (v.length > 5)  v = v.replace(/^(\d{2})(\d{3})(\d{3}).*/,               "$1.$2.$3");
+  else if (v.length > 2)  v = v.replace(/^(\d{2})(\d{3}).*/,                      "$1.$2");
+  this.value = v;
+});
+document.getElementById("cnpjInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") verificar();
+});
+
+// ─── Histórico ────────────────────────────────────────────────────────────────
+function carregarHistorico(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const wb   = XLSX.read(e.target.result, { type: "binary" });
+    const ws   = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+    historico.clear();
+    for (const row of rows)
+      for (const cell of row) {
+        const c = String(cell).replace(/\D/g, "");
+        if (c.length === 14) historico.add(c);
+      }
+    document.getElementById("histMeta").textContent =
+      `✅ ${historico.size} CNPJs carregados de "${file.name}"`;
+    document.getElementById("btnRemoveHist").style.display = "";
+  };
+  reader.readAsBinaryString(file);
+}
+
+function removerHistorico() {
+  historico.clear();
+  document.getElementById("histMeta").textContent = "";
+  document.getElementById("btnRemoveHist").style.display = "none";
+  document.getElementById("histFile").value = "";
+}
+
+// ─── Verificar ────────────────────────────────────────────────────────────────
+async function verificar() {
+  const cnpj = document.getElementById("cnpjInput").value.replace(/\D/g, "");
+  clearUI();
+
+  if (cnpj.length !== 14) {
+    showAlert("error", "⚠️", "CNPJ incompleto. Digite todos os 14 dígitos.");
+    return;
+  }
+
+  setLoading(true);
+
+  let data;
+  try {
+    const resp = await fetch(`${API_BASE}/api/cnpj/${cnpj}`);
+    data = await resp.json();
+    if (!resp.ok) {
+      showAlert("error", "❌", data.error ?? `Erro ${resp.status}`);
+      setLoading(false);
+      return;
+    }
+  } catch (err) {
+    showAlert("error", "❌",
+      `Erro de conexão: ${err.message}<br>` +
+      `<small>Certifique-se que o servidor está rodando: <code>cd backend && node server.js</code><br>` +
+      `Depois acesse a URL do servidor no navegador (não abra o HTML diretamente).</small>`
+    );
+    setLoading(false);
+    return;
+  }
+
+  data.jaParticipou = historico.has(cnpj);
+  data.eligibility  = recalcEligibility(data);
+
+  renderResult(data);
+  setLoading(false);
+}
+
+// ─── Elegibilidade (espelha backend, com jaParticipou do histórico) ───────────
+function recalcEligibility({ isAtivo, hasIndustrial, isExempt, isInAutomotiveChain, isHandsOnBlocked, jaParticipou }) {
+  if (!isAtivo)            return { status:"ineligible", label:"Não elegível",           reason:"Empresa com situação cadastral inativa." };
+  if (!hasIndustrial)      return { status:"ineligible", label:"Não elegível",           reason:"Nenhum CNAE industrial (seções B, C ou D) identificado." };
+  if (jaParticipou)        return { status:"ineligible", label:"Não elegível",           reason:"CNPJ já participou de chamada anterior." };
+  if (isHandsOnBlocked)    return { status:"restricted", label:"Elegível com restrição", reason:"Elegível para consultoria, mas BLOQUEADA para o eixo Hands-on (CNAEs 28.3, 28.5, 29.1 ou 29.2)." };
+  if (isExempt)            return { status:"eligible",   label:"Elegível",               reason:"Isenta de comprovação da cadeia automotiva (CNAE 27.22, 29.3 ou 29.4)." };
+  if (isInAutomotiveChain) return { status:"restricted", label:"Elegível com restrição", reason:"Exige comprovação de participação na cadeia automotiva (carta de OEM, associação ou autodeclaração com NFs)." };
+  return { status:"ineligible", label:"Não elegível", reason:"Nenhum CNAE automotivo identificado. Exige comprovação documental." };
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderResult(d) {
+  const el  = d.eligibility;
+  const ico = el.status === "eligible" ? "✅" : el.status === "restricted" ? "⚠️" : "❌";
+
+  const cnaesFull   = d.cnaesFull ?? [];
+  const cnaeP_item  = cnaesFull.find(c => c.tipo === "principal");
+  const cnaePLabel  = cnaeP_item
+    ? (cnaeP_item.descricao ? `${cnaeP_item.codigoFormatado} — ${cnaeP_item.descricao}` : cnaeP_item.codigoFormatado)
+    : (d.cnaePDesc ? `${d.cnaeP} — ${d.cnaePDesc}` : (d.cnaeP || "—"));
+  const cnaeSItems  = cnaesFull.filter(c => c.tipo === "secundario");
+
+  const histC = historico.size === 0
+    ? { cls:"warn", icon:"⚠️", title:"Sem planilha de histórico carregada", detail:"Carregue uma planilha para cruzar participações anteriores." }
+    : d.jaParticipou
+      ? { cls:"fail", icon:"❌", title:"Participou de chamada anterior", detail:"CNPJ encontrado na planilha de histórico." }
+      : { cls:"ok",   icon:"✅", title:"Não participou de chamadas anteriores", detail:"CNPJ não encontrado na planilha de histórico." };
+
+  const exemC = d.isExempt
+    ? { cls:"ok",   icon:"✅", title:"Isenta de comprovação da cadeia automotiva", detail:"CNAEs 27.22, 29.3 e 29.4 dispensam carta ou autodeclaração." }
+    : d.isInAutomotiveChain
+      ? { cls:"warn", icon:"⚠️", title:"CNAE automotivo — exige comprovação", detail:"Carta de OEM, carta de associação (ANFAVEA/Abipeças-Sindipeças) ou autodeclaração com NFs e CNPJ do cliente." }
+      : { cls:"fail", icon:"❌", title:"Sem CNAE automotivo identificado", detail:"Exige comprovação documental de participação na cadeia automotiva." };
+
+  const handC = d.isHandsOnBlocked
+    ? { cls:"warn", icon:"⚠️", title:"Bloqueada para eixo Hands-on (CNAEs 28.3, 28.5, 29.1 ou 29.2)", detail:"Empresas com esses CNAEs não podem submeter projetos Hands-on." }
+    : { cls:"ok",   icon:"✅", title:"Sem restrição para eixo Hands-on", detail:"" };
+
+  document.getElementById("resultArea").innerHTML = `
+    <div class="veredicto ${el.status}">
+      <div class="veredicto-icon">${ico}</div>
+      <div>
+        <div class="veredicto-label">${el.label}</div>
+        <div class="veredicto-msg">${el.reason}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Dados cadastrais</div>
+      ${ir("CNPJ",           d.cnpjFormatado)}
+      ${ir("Razão social",   d.razaoSocial)}
+      ${d.nomeFantasia && d.nomeFantasia !== d.razaoSocial ? ir("Nome fantasia", d.nomeFantasia, true) : ""}
+      ${ir("Situação",       d.situacao)}
+      ${ir("Município / UF", [d.municipio, d.uf].filter(Boolean).join(" – ") || "—")}
+      ${d.abertura         ? ir("Abertura",      d.abertura,         true) : ""}
+      ${d.porte            ? ir("Porte",         d.porte,            true) : ""}
+      ${d.naturezaJuridica ? ir("Nat. jurídica", d.naturezaJuridica, true) : ""}
+      ${d.telefone1 ? ir("Telefone", d.telefone2 ? `${d.telefone1} / ${d.telefone2}` : d.telefone1, true) : ""}
+      ${d.email     ? ir("E-mail",   `<a href="mailto:${d.email}" style="color:var(--accent)">${d.email}</a>`, true) : ""}
+      ${ir("CNAE principal", cnaePLabel)}
+      ${cnaeSItems.length ? cnaeList("CNAEs secundários", cnaeSItems) : ""}
+    </div>
+
+    <div class="card">
+      <div class="section-label">Critérios de elegibilidade</div>
+      ${cr(d.isAtivo ? "ok":"fail", d.isAtivo ? "✅":"❌",
+          "Situação cadastral ativa", d.situacao)}
+      ${cr(d.hasIndustrial ? "ok":"fail", d.hasIndustrial ? "✅":"❌",
+          "CNAE industrial (seções B, C ou D)",
+          d.hasIndustrial
+            ? "CNAEs identificados: " + d.industrialCnaes.join(", ")
+            : "Nenhum CNAE das seções industriais B, C ou D encontrado")}
+      ${cr(histC.cls, histC.icon, histC.title, histC.detail)}
+      ${cr(exemC.cls, exemC.icon, exemC.title, exemC.detail)}
+      ${cr(handC.cls, handC.icon, handC.title, handC.detail)}
+    </div>`;
+}
+
+function ir(label, value, muted = false) {
+  return `<div class="info-row">
+    <span class="info-label">${label}</span>
+    <span class="info-value${muted ? " muted" : ""}">${value || "—"}</span>
+  </div>`;
+}
+
+function cnaeList(label, items) {
+  const shown = items.slice(0, 10);
+  const extra = items.length > 10 ? `<li>+${items.length - 10} mais</li>` : "";
+  const lis = shown.map(c =>
+    `<li><span class="cnae-code">${c.codigoFormatado}</span>${c.descricao || ""}</li>`
+  ).join("") + extra;
+  return `<div class="info-row" style="align-items:flex-start">
+    <span class="info-label">${label}</span>
+    <ul class="cnae-list">${lis}</ul>
+  </div>`;
+}
+
+function cr(cls, icon, title, detail) {
+  return `<div class="criterio ${cls}">
+    <span class="criterio-icon">${icon}</span>
+    <div>
+      <div class="criterio-title">${title}</div>
+      ${detail ? `<div class="criterio-detail">${detail}</div>` : ""}
+    </div>
+  </div>`;
+}
+
+// ─── Lote ─────────────────────────────────────────────────────────────────────
+
+let batchCnpjs     = [];
+let batchResultados = [];
+let batchCancelled  = false;
+
+function carregarLote(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const wb   = XLSX.read(e.target.result, { type: "binary" });
+    const ws   = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+    const seen = new Set();
+    batchCnpjs = [];
+    for (const row of rows)
+      for (const cell of row) {
+        const c = String(cell ?? "").replace(/\D/g, "");
+        if (c.length === 14 && !seen.has(c)) { seen.add(c); batchCnpjs.push(c); }
+      }
+    document.getElementById("batchMeta").textContent =
+      batchCnpjs.length
+        ? `${batchCnpjs.length} CNPJs encontrados em "${file.name}"`
+        : `Nenhum CNPJ encontrado em "${file.name}"`;
+    document.getElementById("btnIniciar").style.display    = batchCnpjs.length ? "" : "none";
+    document.getElementById("btnBaixarLote").style.display = "none";
+    document.getElementById("loteSummary").innerHTML       = "";
+    document.getElementById("batchProgressArea").style.display = "none";
+  };
+  reader.readAsBinaryString(file);
+}
+
+async function processarLote() {
+  if (!batchCnpjs.length) return;
+  batchCancelled   = false;
+  batchResultados  = [];
+
+  document.getElementById("btnIniciar").style.display        = "none";
+  document.getElementById("btnCancelar").style.display       = "";
+  document.getElementById("btnBaixarLote").style.display     = "none";
+  document.getElementById("batchProgressArea").style.display = "";
+  document.getElementById("loteSummary").innerHTML           = "";
+  document.getElementById("progressBar").style.width        = "0";
+
+  const total      = batchCnpjs.length;
+  const LOTE_MAX   = 3;   // requests por janela
+  const PAUSA_MS   = 65;  // segundos de espera entre lotes
+
+  for (let i = 0; i < total; i++) {
+    if (batchCancelled) break;
+
+    // Pausa proativa a cada LOTE_MAX requests para não atingir o rate limit
+    if (i > 0 && i % LOTE_MAX === 0) {
+      for (let s = PAUSA_MS; s > 0 && !batchCancelled; s--) {
+        document.getElementById("progressTxt").textContent =
+          `Aguardando limite da API (${i}/${total} concluídos) — retomando em ${s}s…`;
+        await sleep(1000);
+      }
+    }
+
+    if (batchCancelled) break;
+
+    const cnpj = batchCnpjs[i];
+    const fmt  = cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+    document.getElementById("progressBar").style.width = Math.round((i / total) * 100) + "%";
+    document.getElementById("progressTxt").textContent = `Consultando ${i + 1}/${total} — ${fmt}`;
+
+    let data = null;
+    for (let tentativa = 0; tentativa < 4 && !batchCancelled; tentativa++) {
+      try {
+        const resp = await fetch(`${API_BASE}/api/cnpj/${cnpj}`);
+        if (resp.status === 429) {
+          for (let s = 65; s > 0 && !batchCancelled; s--) {
+            document.getElementById("progressTxt").textContent =
+              `Rate limit atingido — retomando em ${s}s… (${i + 1}/${total})`;
+            await sleep(1000);
+          }
+          continue;
+        }
+        const json = await resp.json();
+        if (resp.ok) {
+          json.jaParticipou = historico.has(cnpj);
+          json.eligibility  = recalcEligibility(json);
+          data = json;
+        } else {
+          data = { _erro: json.error ?? `HTTP ${resp.status}` };
+        }
+        break;
+      } catch {
+        if (tentativa < 3) await sleep(2000);
+      }
+    }
+
+    batchResultados.push({ cnpj, data });
+
+    // Pequeno intervalo entre requests dentro do mesmo lote
+    if (i < total - 1 && !batchCancelled && (i + 1) % LOTE_MAX !== 0) {
+      await sleep(500);
+    }
+  }
+
+  const processados = batchResultados.length;
+  document.getElementById("progressBar").style.width = "100%";
+  document.getElementById("progressTxt").textContent =
+    batchCancelled
+      ? `Cancelado — ${processados} CNPJs processados até o momento`
+      : `Concluído — ${processados} CNPJs verificados`;
+
+  document.getElementById("btnCancelar").style.display   = "none";
+  document.getElementById("btnIniciar").style.display    = "";
+  if (processados) document.getElementById("btnBaixarLote").style.display = "";
+
+  renderLoteSummary();
+}
+
+function cancelarLote() {
+  batchCancelled = true;
+  document.getElementById("btnCancelar").style.display = "none";
+}
+
+function renderLoteSummary() {
+  const eligible   = batchResultados.filter(r => r.data?.eligibility?.status === "eligible").length;
+  const restricted = batchResultados.filter(r => r.data?.eligibility?.status === "restricted").length;
+  const ineligible = batchResultados.filter(r => r.data?.eligibility?.status === "ineligible").length;
+  const erros      = batchResultados.filter(r => !r.data || r.data._erro).length;
+
+  document.getElementById("loteSummary").innerHTML = `
+    <div class="lote-summary">
+      <span style="color:var(--ok)">✅ Elegíveis: <strong>${eligible}</strong></span>
+      <span style="color:var(--warn)">⚠️ Com restrição: <strong>${restricted}</strong></span>
+      <span style="color:var(--err)">❌ Não elegíveis: <strong>${ineligible}</strong></span>
+      ${erros ? `<span style="color:var(--muted)">⚠ Erros: <strong>${erros}</strong></span>` : ""}
+    </div>`;
+}
+
+function downloadResultados() {
+  const cabecalho = [
+    "CNPJ", "Razão Social", "Nome Fantasia", "Situação", "Município", "UF",
+    "Porte", "Natureza Jurídica", "Telefone", "E-mail",
+    "CNAE Principal (código)", "CNAE Principal (descrição)",
+    "CNAEs Secundários", "Elegibilidade", "Motivo",
+  ];
+
+  const linhas = batchResultados.map(({ cnpj, data }) => {
+    const fmt = cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+    if (!data || data._erro)
+      return [fmt, data?._erro ?? "Erro na consulta", ...Array(13).fill("")];
+
+    const pItem   = data.cnaesFull?.find(c => c.tipo === "principal");
+    const secList = (data.cnaesFull ?? [])
+      .filter(c => c.tipo === "secundario")
+      .map(c => `${c.codigoFormatado} — ${c.descricao}`)
+      .join("; ");
+
+    return [
+      data.cnpjFormatado    ?? fmt,
+      data.razaoSocial      ?? "",
+      data.nomeFantasia     ?? "",
+      data.situacao         ?? "",
+      data.municipio        ?? "",
+      data.uf               ?? "",
+      data.porte            ?? "",
+      data.naturezaJuridica ?? "",
+      [data.telefone1, data.telefone2].filter(Boolean).join(" / "),
+      data.email            ?? "",
+      pItem?.codigoFormatado ?? "",
+      pItem?.descricao       ?? "",
+      secList,
+      data.eligibility?.label  ?? "",
+      data.eligibility?.reason ?? "",
+    ];
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([cabecalho, ...linhas]);
+  ws["!cols"] = [
+    {wch:20},{wch:42},{wch:26},{wch:10},{wch:18},{wch:5},
+    {wch:12},{wch:32},{wch:16},{wch:32},
+    {wch:18},{wch:55},{wch:80},{wch:24},{wch:80},
+  ];
+  XLSX.utils.book_append_sheet(wb, ws, "Elegibilidade");
+  XLSX.writeFile(wb, `elegibilidade_lote_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ─── UI ───────────────────────────────────────────────────────────────────────
+function clearUI() {
+  document.getElementById("alertArea").innerHTML  = "";
+  document.getElementById("resultArea").innerHTML = "";
+}
+function showAlert(type, icon, msg) {
+  document.getElementById("alertArea").innerHTML =
+    `<div class="alert ${type}"><span style="flex-shrink:0">${icon}</span><span>${msg}</span></div>`;
+}
+function setLoading(on) {
+  const btn = document.getElementById("btnVerificar");
+  btn.disabled  = on;
+  btn.innerHTML = on ? '<span class="spin">⏳</span>Consultando...' : '🔍 Verificar';
+}
+</script>
+</body>
+</html>
