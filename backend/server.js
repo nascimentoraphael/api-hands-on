@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express  = require("express");
 const https    = require("https");
 const path     = require("path");
@@ -109,17 +110,18 @@ function getEligibility({ isAtivo, hasIndustrial, isExempt, isInAutomotiveChain,
 
 // ─── Fetch nativo (sem node-fetch) ───────────────────────────────────────────
 
-function httpsGet(url) {
+function httpsGet(url, headers = {}) {
   return new Promise((resolve, reject) => {
     const req = https.get(url, {
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; CNPJVerificador/1.0)",
         "Accept": "application/json",
+        ...headers,
       }
     }, (res) => {
       // Segue redirect manualmente se necessário
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        return httpsGet(res.headers.location).then(resolve).catch(reject);
+        return httpsGet(res.headers.location, headers).then(resolve).catch(reject);
       }
       let body = "";
       res.on("data", chunk => body += chunk);
@@ -228,11 +230,15 @@ app.get("/api/cnpj/:cnpj", async (req, res) => {
   const cached = cacheGet(cnpj);
   if (cached) return res.json({ ...cached, fromCache: true });
 
-  // ── Tentativa 1: publica.cnpj.ws ──────────────────────────────────────────
+  // ── Tentativa 1: api.cnpj.ws (autenticada) ────────────────────────────────
   let parsed = null;
 
   try {
-    const r = await httpsGet(`https://publica.cnpj.ws/cnpj/${cnpj}`);
+    const apiKey = process.env.CNPJ_WS_API_KEY;
+    const headers = { "Accept": "application/json", "User-Agent": "Mozilla/5.0 (compatible; CNPJVerificador/1.0)" };
+    if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+    const url = apiKey ? `https://api.cnpj.ws/cnpj/v1/${cnpj}` : `https://publica.cnpj.ws/cnpj/${cnpj}`;
+    const r = await httpsGet(url, headers);
     if (r.status === 200) {
       parsed = parseFromCnpjWs(cnpj, JSON.parse(r.body));
     } else if (r.status === 404) {
