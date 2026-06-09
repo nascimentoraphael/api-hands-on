@@ -102,7 +102,7 @@ function getEligibility({ isAtivo, hasIndustrial, isExempt, isInAutomotiveChain,
   if (!isAtivo)            return { status: "ineligible", label: "Não elegível",           reason: "Empresa com situação cadastral inativa." };
   if (!hasIndustrial)      return { status: "ineligible", label: "Não elegível",           reason: "Nenhum CNAE industrial (seções B, C ou D) identificado." };
   if (jaParticipou)        return { status: "ineligible", label: "Não elegível",           reason: "CNPJ já participou de chamada anterior." };
-  if (isHandsOnBlocked)    return { status: "restricted", label: "Elegível com restrição", reason: "Elegível para consultoria, mas BLOQUEADA para o eixo Hands-on (CNAEs 28.3, 28.5, 29.1 ou 29.2). Exige carta de comprovação de fornecimento." };
+  if (isHandsOnBlocked)    return { status: "ineligible", label: "Não elegível",           reason: "Empresa com CNAE 28.3, 28.5, 29.1 ou 29.2 não pode submeter projetos nem ser beneficiária do eixo Hands-on." };
   if (isExempt)            return { status: "eligible",   label: "Elegível",               reason: "Isenta de comprovação da cadeia automotiva (CNAE 27.22, 29.3 ou 29.4)." };
   if (isInAutomotiveChain) return { status: "restricted", label: "Elegível com restrição", reason: "Exige comprovação de participação na cadeia automotiva (carta de OEM, associação ou autodeclaração com NFs)." };
   return { status: "ineligible", label: "Não elegível", reason: "Nenhum CNAE automotivo identificado. Exige comprovação documental." };
